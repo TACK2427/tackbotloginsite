@@ -6,11 +6,26 @@
     <title>アカウント連携システム</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        /* 背景画像の設定（ここを書き換えて好きな画像にできます） */
+        body {
+            background-image: url('https://images.unsplash.com/photo-1557683316-973673baf926?auto=format&fit=crop&w=1600&q=80');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+        }
+        /* すりガラス風のエフェクト */
+        .glass-container {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+    </style>
 </head>
-<body class="bg-slate-50 text-slate-800 font-sans min-h-screen flex flex-col items-center justify-center p-4">
+<body class="text-slate-800 font-sans min-h-screen flex flex-col items-center justify-center p-4">
 
     <!-- メインコンテナ -->
-    <div id="app" class="w-full max-w-md bg-white rounded-2xl shadow-xl p-8 border border-slate-100 relative overflow-hidden">
+    <div id="app" class="w-full max-w-md glass-container rounded-2xl shadow-2xl p-8 border border-white/20 relative overflow-hidden">
         
         <!-- ユーザー用ビュー -->
         <div id="user-view">
@@ -21,7 +36,7 @@
             <!-- ステップ1: Discord -->
             <div id="step-discord" class="space-y-4">
                 <p class="text-sm text-slate-600 text-center">まず、Discordアカウントでログインしてください。</p>
-                <button onclick="loginDiscord()" class="w-full flex items-center justify-center gap-3 bg-[#5865F2] hover:bg-[#4752C4] text-white py-3 px-4 rounded-xl font-medium transition-colors">
+                <button onclick="loginDiscord()" class="w-full flex items-center justify-center gap-3 bg-[#5865F2] hover:bg-[#4752C4] text-white py-3 px-4 rounded-xl font-medium transition-all transform hover:scale-[1.02] active:scale-95 shadow-lg">
                     <i data-lucide="message-square"></i>
                     Discordでログイン
                 </button>
@@ -29,12 +44,12 @@
 
             <!-- ステップ2: LINE -->
             <div id="step-line" class="hidden space-y-4">
-                <div class="flex items-center justify-center gap-2 text-green-600 bg-green-50 p-3 rounded-lg text-sm mb-4">
+                <div class="flex items-center justify-center gap-2 text-green-600 bg-green-50/80 p-3 rounded-lg text-sm mb-4">
                     <i data-lucide="check-circle" class="w-5 h-5"></i>
                     Discordの認証が完了しました
                 </div>
                 <p class="text-sm text-slate-600 text-center">次に、LINEアカウントでログインして紐付けを完了させます。</p>
-                <button onclick="loginLine()" class="w-full flex items-center justify-center gap-3 bg-[#06C755] hover:bg-[#05b34c] text-white py-3 px-4 rounded-xl font-medium transition-colors">
+                <button onclick="loginLine()" class="w-full flex items-center justify-center gap-3 bg-[#06C755] hover:bg-[#05b34c] text-white py-3 px-4 rounded-xl font-medium transition-all transform hover:scale-[1.02] active:scale-95 shadow-lg">
                     <i data-lucide="message-circle"></i>
                     LINEでログイン
                 </button>
@@ -49,12 +64,18 @@
 
         <!-- 管理者ログインビュー -->
         <div id="admin-login" class="hidden space-y-4 text-center">
-            <h1 class="text-xl font-bold text-slate-700">管理者ログイン</h1>
-            <p class="text-xs text-slate-500">管理者パスワードを入力してください</p>
+            <h1 class="text-xl font-bold text-slate-700 flex items-center justify-center gap-2">
+                <i data-lucide="lock" class="w-5 h-5"></i>
+                管理者ログイン
+            </h1>
+            <p class="text-xs text-slate-500">パスワードを入力してEnterを押してください</p>
             <div class="space-y-3">
-                <input type="password" id="admin-pass" class="w-full border border-slate-200 rounded-lg p-2 text-center focus:outline-none focus:ring-2 focus:ring-slate-400" placeholder="Password">
-                <div id="admin-error" class="hidden text-xs text-red-500 font-medium"></div>
-                <button id="admin-login-btn" onclick="checkAdminPassword()" class="w-full bg-slate-800 text-white py-2 rounded-lg text-sm hover:bg-slate-700 transition-colors">
+                <input type="password" id="admin-pass" 
+                    class="w-full border border-slate-200 rounded-lg p-3 text-center focus:outline-none focus:ring-2 focus:ring-slate-400 transition-all bg-white/50" 
+                    placeholder="Password"
+                    onkeydown="if(event.key==='Enter') checkAdminPassword()">
+                <div id="admin-error" class="hidden text-xs text-red-500 font-medium bg-red-50 p-2 rounded"></div>
+                <button id="admin-login-btn" onclick="checkAdminPassword()" class="w-full bg-slate-800 text-white py-3 rounded-lg text-sm hover:bg-slate-700 transition-all font-medium shadow-md">
                     認証する
                 </button>
             </div>
@@ -63,13 +84,13 @@
 
         <!-- 管理者リストビュー -->
         <div id="admin-view" class="hidden">
-            <h1 class="text-xl font-bold mb-4 text-slate-700 flex items-center gap-2">
-                <i data-lucide="shield"></i> 連携ユーザー一覧
+            <h1 class="text-xl font-bold mb-4 text-slate-700 flex items-center gap-2 border-b pb-2">
+                <i data-lucide="users"></i> 連携ユーザー一覧
             </h1>
-            <div id="admin-list" class="space-y-3 max-h-96 overflow-y-auto mb-4">
+            <div id="admin-list" class="space-y-3 max-h-96 overflow-y-auto mb-4 pr-1 custom-scrollbar">
                 <!-- データがここに挿入されます -->
             </div>
-            <button onclick="exitAdmin()" class="w-full bg-slate-100 text-slate-600 py-2 rounded-lg text-sm hover:bg-slate-200 transition-colors">戻る</button>
+            <button onclick="exitAdmin()" class="w-full bg-slate-100 text-slate-600 py-2 rounded-lg text-sm hover:bg-slate-200 transition-colors">ログアウトして戻る</button>
         </div>
     </div>
 
@@ -121,19 +142,17 @@
             window.location.href = url;
         }
 
-        // --- ロード時の処理 ---
         window.onload = async () => {
             const hash = window.location.hash.substring(1);
             const params = new URLSearchParams(window.location.search);
             
-            // 管理者モードのチェック
             if (hash === 'admin') {
                 views.user.classList.add('hidden');
                 views.adminLogin.classList.remove('hidden');
+                document.getElementById('admin-pass').focus(); // 自動で入力欄にフォーカス
                 return;
             }
 
-            // 1. Discordからのリダイレクト
             const urlParamsHash = new URLSearchParams(hash);
             if (urlParamsHash.has('access_token')) {
                 const discordToken = urlParamsHash.get('access_token');
@@ -143,7 +162,6 @@
                 return;
             }
 
-            // 2. LINEからのリダイレクト
             if (params.has('code')) {
                 const lineCode = params.get('code');
                 const discordToken = localStorage.getItem('discordToken');
@@ -160,7 +178,6 @@
                 return;
             }
 
-            // 初期状態
             const savedDiscordToken = localStorage.getItem('discordToken');
             if (savedDiscordToken) {
                 showView('line');
@@ -181,21 +198,19 @@
                 
                 localStorage.removeItem('discordToken');
                 hideAllSteps();
-                showMessage("🎉 アカウントの連携が完了しました！Discordでコマンドを試してみてください。");
+                showMessage("🎉 アカウントの連携が完了しました！");
             } catch (error) {
                 showView('line');
                 showMessage("連携に失敗しました: " + error.message, true);
             }
         }
 
-        // --- 管理者機能の制御 ---
-
-        // パスワードをSHA-256でハッシュ化する関数
+        // --- 管理者機能 ---
         async function hashPassword(password) {
             const msgUint8 = new TextEncoder().encode(password);
             const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
             const hashArray = Array.from(new Uint8Array(hashBuffer));
-            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').toLowerCase();
         }
 
         async function checkAdminPassword() {
@@ -207,10 +222,9 @@
 
             errorEl.classList.add('hidden');
             btn.disabled = true;
-            btn.textContent = "検証中...";
+            btn.textContent = "認証中...";
 
             try {
-                // パスワードをハッシュ化して送信（セキュリティ向上）
                 const hashedPassword = await hashPassword(input.value);
 
                 const response = await fetch(`${API_BASE_URL}/admin_login`, {
@@ -222,20 +236,17 @@
                 const result = await response.json();
 
                 if (response.ok && result.success) {
-                    // 認証成功
                     views.adminLogin.classList.add('hidden');
                     views.admin.classList.remove('hidden');
-                    // 以降のAPIリクエスト用にトークン等を受け取る場合はここで保存
                     if (result.token) sessionStorage.setItem('adminToken', result.token);
                     fetchAdminData();
                 } else {
-                    // 認証失敗
-                    errorEl.textContent = result.message || "パスワードが正しくありません";
+                    errorEl.textContent = result.message || "パスワードが一致しません。";
                     errorEl.classList.remove('hidden');
                     input.value = "";
                 }
             } catch (error) {
-                errorEl.textContent = "サーバーとの通信に失敗しました";
+                errorEl.textContent = "サーバーに接続できませんでした。";
                 errorEl.classList.remove('hidden');
             } finally {
                 btn.disabled = false;
@@ -257,10 +268,11 @@
             
             try {
                 const response = await fetch(`${API_BASE_URL}/users`, {
-                    headers: {
-                        'Authorization': `Bearer ${adminToken}` // トークンがある場合はヘッダーに付与
-                    }
+                    headers: { 'Authorization': `Bearer ${adminToken}` }
                 });
+                
+                if (!response.ok) throw new Error('データの取得に失敗しました。');
+                
                 const data = await response.json();
                 
                 if (!data || data.length === 0) {
@@ -269,17 +281,20 @@
                 }
 
                 listEl.innerHTML = data.map(item => `
-                    <div class="bg-white border border-slate-200 rounded-lg p-3 flex items-center gap-3 shadow-sm">
-                        <img src="${item.lineProfile.pictureUrl || 'https://via.placeholder.com/40'}" class="w-10 h-10 rounded-full border border-slate-100" onerror="this.src='https://via.placeholder.com/40'">
+                    <div class="bg-white/80 border border-slate-100 rounded-xl p-3 flex items-center gap-3 shadow-sm hover:shadow-md transition-shadow">
+                        <img src="${item.lineProfile.pictureUrl || 'https://via.placeholder.com/40'}" class="w-12 h-12 rounded-full border-2 border-white shadow-inner" onerror="this.src='https://via.placeholder.com/40'">
                         <div class="flex-1 min-w-0">
-                            <p class="text-sm font-semibold text-slate-800 truncate">${item.lineProfile.displayName}</p>
-                            <p class="text-xs text-slate-500 truncate">Discord: ${item.discordUsername || 'ID: ' + item.discordId}</p>
-                            <p class="text-[10px] text-slate-400">${new Date(item.linkedAt).toLocaleString('ja-JP')}</p>
+                            <p class="text-sm font-bold text-slate-800 truncate">${item.lineProfile.displayName}</p>
+                            <p class="text-xs text-slate-500 truncate flex items-center gap-1">
+                                <i data-lucide="message-square" class="w-3 h-3"></i> ${item.discordUsername || 'ID: ' + item.discordId}
+                            </p>
+                            <p class="text-[10px] text-slate-400 mt-1">${new Date(item.linkedAt).toLocaleString('ja-JP')}</p>
                         </div>
                     </div>
                 `).join('');
+                lucide.createIcons(); // 新しく追加されたアイコンを描画
             } catch (error) {
-                listEl.innerHTML = '<p class="text-sm text-red-500 text-center py-4">取得失敗。APIサーバーを確認してください。</p>';
+                listEl.innerHTML = `<p class="text-sm text-red-500 text-center py-4">${error.message}</p>`;
             }
         }
     </script>
