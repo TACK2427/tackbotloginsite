@@ -11,11 +11,8 @@
 
     <!-- メインコンテナ -->
     <div id="app" class="w-full max-w-md bg-white rounded-2xl shadow-xl p-8 border border-slate-100 relative overflow-hidden">
-        <!-- 管理者用切り替えボタン（右下） -->
-        <button onclick="toggleAdmin()" class="absolute bottom-2 right-2 text-xs text-slate-400 hover:text-slate-600">
-            Admin
-        </button>
-
+        
+        <!-- ユーザー用ビュー -->
         <div id="user-view">
             <h1 class="text-2xl font-bold text-center mb-6 text-slate-700">アカウント連携</h1>
             
@@ -46,49 +43,62 @@
             <!-- ローディング -->
             <div id="step-loading" class="hidden flex flex-col items-center justify-center py-8">
                 <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-slate-800 mb-4"></div>
-                <p class="text-slate-600 text-sm">処理中...</p>
+                <p class="text-slate-600 text-sm" id="loading-text">処理中...</p>
             </div>
         </div>
 
-        <!-- 管理者ビュー -->
+        <!-- 管理者ログインビュー -->
+        <div id="admin-login" class="hidden space-y-4 text-center">
+            <h1 class="text-xl font-bold text-slate-700">管理者ログイン</h1>
+            <p class="text-xs text-slate-500">管理者パスワードを入力してください</p>
+            <div class="space-y-3">
+                <input type="password" id="admin-pass" class="w-full border border-slate-200 rounded-lg p-2 text-center focus:outline-none focus:ring-2 focus:ring-slate-400" placeholder="Password">
+                <div id="admin-error" class="hidden text-xs text-red-500 font-medium"></div>
+                <button id="admin-login-btn" onclick="checkAdminPassword()" class="w-full bg-slate-800 text-white py-2 rounded-lg text-sm hover:bg-slate-700 transition-colors">
+                    認証する
+                </button>
+            </div>
+            <button onclick="exitAdmin()" class="text-xs text-slate-400 hover:text-slate-600">ユーザー画面へ戻る</button>
+        </div>
+
+        <!-- 管理者リストビュー -->
         <div id="admin-view" class="hidden">
             <h1 class="text-xl font-bold mb-4 text-slate-700 flex items-center gap-2">
-                <i data-lucide="shield"></i> 管理者用確認ページ
+                <i data-lucide="shield"></i> 連携ユーザー一覧
             </h1>
-            <button onclick="fetchAdminData()" class="w-full bg-slate-800 hover:bg-slate-700 text-white py-2 rounded-lg text-sm mb-4">
-                データを更新
-            </button>
-            <div id="admin-list" class="space-y-3 max-h-96 overflow-y-auto">
+            <div id="admin-list" class="space-y-3 max-h-96 overflow-y-auto mb-4">
                 <!-- データがここに挿入されます -->
             </div>
-            <button onclick="toggleAdmin()" class="mt-4 text-sm text-slate-500 hover:text-slate-800 w-full text-center">
-                戻る
-            </button>
+            <button onclick="exitAdmin()" class="w-full bg-slate-100 text-slate-600 py-2 rounded-lg text-sm hover:bg-slate-200 transition-colors">戻る</button>
         </div>
     </div>
 
     <script>
-        // --- 設定値（ご自身の環境に合わせて変更してください） ---
+        // --- 設定値 ---
         const DISCORD_CLIENT_ID = "1271101266680086591";
         const LINE_CLIENT_ID = "2009714517";
-        const REDIRECT_URI = "https://login.tack2427.f5.si/"; 
-        const API_BASE_URL = "https://api.tack2427.f5.si"; // 注意: GitHub PagesがHTTPSなため、APIサーバーもHTTPS(SSL)化されている必要があります
+        const REDIRECT_URI = window.location.origin + window.location.pathname; 
+        const API_BASE_URL = "https://api.tack2427.f5.si";
 
-        // --- UI管理 ---
         lucide.createIcons();
         const views = {
             discord: document.getElementById('step-discord'),
             line: document.getElementById('step-line'),
             loading: document.getElementById('step-loading'),
             user: document.getElementById('user-view'),
+            adminLogin: document.getElementById('admin-login'),
             admin: document.getElementById('admin-view')
         };
         const statusMsg = document.getElementById('status-message');
 
-        function showView(viewName) {
+        function hideAllSteps() {
             views.discord.classList.add('hidden');
             views.line.classList.add('hidden');
             views.loading.classList.add('hidden');
+        }
+
+        function showView(viewName) {
+            hideAllSteps();
             if (views[viewName]) views[viewName].classList.remove('hidden');
         }
 
@@ -100,41 +110,43 @@
 
         // --- 認証フロー ---
         function loginDiscord() {
-            // Implicit flowを利用してトークンをURLハッシュで受け取る
             const url = `https://discord.com/api/oauth2/authorize?client_id=${DISCORD_CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=token&scope=identify`;
             window.location.href = url;
         }
 
         function loginLine() {
-            // Authorization Code flowを利用
             const state = Math.random().toString(36).substring(7);
             localStorage.setItem('line_state', state);
             const url = `https://access.line.me/oauth2/v2.1/authorize?response_type=code&client_id=${LINE_CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&state=${state}&scope=profile`;
             window.location.href = url;
         }
 
-        // --- ロード時の処理（URL解析） ---
+        // --- ロード時の処理 ---
         window.onload = async () => {
             const hash = window.location.hash.substring(1);
             const params = new URLSearchParams(window.location.search);
             
-            // 1. Discordからのリダイレクト（ハッシュに access_token がある場合）
+            // 管理者モードのチェック
+            if (hash === 'admin') {
+                views.user.classList.add('hidden');
+                views.adminLogin.classList.remove('hidden');
+                return;
+            }
+
+            // 1. Discordからのリダイレクト
             const urlParamsHash = new URLSearchParams(hash);
             if (urlParamsHash.has('access_token')) {
                 const discordToken = urlParamsHash.get('access_token');
                 localStorage.setItem('discordToken', discordToken);
-                // URLを綺麗にする
                 window.history.replaceState(null, null, window.location.pathname);
                 showView('line');
                 return;
             }
 
-            // 2. LINEからのリダイレクト（クエリに code がある場合）
+            // 2. LINEからのリダイレクト
             if (params.has('code')) {
                 const lineCode = params.get('code');
                 const discordToken = localStorage.getItem('discordToken');
-                
-                // URLを綺麗にする
                 window.history.replaceState(null, null, window.location.pathname);
 
                 if (!discordToken) {
@@ -151,74 +163,123 @@
             // 初期状態
             const savedDiscordToken = localStorage.getItem('discordToken');
             if (savedDiscordToken) {
-                showView('line'); // すでにDiscordトークンを持っている場合
+                showView('line');
             } else {
                 showView('discord');
             }
         };
 
-        // --- APIへのデータ送信 ---
         async function sendToApi(discordToken, lineCode) {
             try {
                 const response = await fetch(`${API_BASE_URL}/save`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        discordToken: discordToken, 
-                        lineCode: lineCode,
-                        redirectUri: REDIRECT_URI // LINEの検証用に必要
-                    })
+                    body: JSON.stringify({ discordToken, lineCode, redirectUri: REDIRECT_URI })
                 });
 
                 if (!response.ok) throw new Error('APIサーバーでエラーが発生しました');
                 
-                const result = await response.json();
-                localStorage.removeItem('discordToken'); // 成功したらクリア
-                
-                showView(''); // ボタン類を隠す
+                localStorage.removeItem('discordToken');
+                hideAllSteps();
                 showMessage("🎉 アカウントの連携が完了しました！Discordでコマンドを試してみてください。");
             } catch (error) {
-                console.error(error);
                 showView('line');
                 showMessage("連携に失敗しました: " + error.message, true);
             }
         }
 
-        // --- 管理者機能 ---
-        function toggleAdmin() {
-            views.user.classList.toggle('hidden');
-            views.admin.classList.toggle('hidden');
-            if (!views.admin.classList.contains('hidden')) {
-                fetchAdminData();
+        // --- 管理者機能の制御 ---
+
+        // パスワードをSHA-256でハッシュ化する関数
+        async function hashPassword(password) {
+            const msgUint8 = new TextEncoder().encode(password);
+            const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+
+        async function checkAdminPassword() {
+            const input = document.getElementById('admin-pass');
+            const errorEl = document.getElementById('admin-error');
+            const btn = document.getElementById('admin-login-btn');
+            
+            if (!input.value) return;
+
+            errorEl.classList.add('hidden');
+            btn.disabled = true;
+            btn.textContent = "検証中...";
+
+            try {
+                // パスワードをハッシュ化して送信（セキュリティ向上）
+                const hashedPassword = await hashPassword(input.value);
+
+                const response = await fetch(`${API_BASE_URL}/admin_login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password: hashedPassword })
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.success) {
+                    // 認証成功
+                    views.adminLogin.classList.add('hidden');
+                    views.admin.classList.remove('hidden');
+                    // 以降のAPIリクエスト用にトークン等を受け取る場合はここで保存
+                    if (result.token) sessionStorage.setItem('adminToken', result.token);
+                    fetchAdminData();
+                } else {
+                    // 認証失敗
+                    errorEl.textContent = result.message || "パスワードが正しくありません";
+                    errorEl.classList.remove('hidden');
+                    input.value = "";
+                }
+            } catch (error) {
+                errorEl.textContent = "サーバーとの通信に失敗しました";
+                errorEl.classList.remove('hidden');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = "認証する";
             }
+        }
+
+        function exitAdmin() {
+            window.location.hash = "";
+            sessionStorage.removeItem('adminToken');
+            location.reload();
         }
 
         async function fetchAdminData() {
             const listEl = document.getElementById('admin-list');
             listEl.innerHTML = '<p class="text-sm text-slate-500 text-center py-4">読み込み中...</p>';
             
+            const adminToken = sessionStorage.getItem('adminToken');
+            
             try {
-                // ※実際は管理者用のシークレットキー等をHeaderに付与するべきです
-                const response = await fetch(`${API_BASE_URL}/users`);
+                const response = await fetch(`${API_BASE_URL}/users`, {
+                    headers: {
+                        'Authorization': `Bearer ${adminToken}` // トークンがある場合はヘッダーに付与
+                    }
+                });
                 const data = await response.json();
                 
-                if (data.length === 0) {
-                    listEl.innerHTML = '<p class="text-sm text-slate-500 text-center py-4">連携されたアカウントはまだありません。</p>';
+                if (!data || data.length === 0) {
+                    listEl.innerHTML = '<p class="text-sm text-slate-500 text-center py-4">連携データはありません。</p>';
                     return;
                 }
 
                 listEl.innerHTML = data.map(item => `
-                    <div class="bg-white border border-slate-200 rounded-lg p-3 flex items-center gap-3">
-                        <img src="${item.lineProfile.pictureUrl || 'https://via.placeholder.com/40'}" class="w-10 h-10 rounded-full border border-slate-200" onerror="this.src='https://via.placeholder.com/40'">
+                    <div class="bg-white border border-slate-200 rounded-lg p-3 flex items-center gap-3 shadow-sm">
+                        <img src="${item.lineProfile.pictureUrl || 'https://via.placeholder.com/40'}" class="w-10 h-10 rounded-full border border-slate-100" onerror="this.src='https://via.placeholder.com/40'">
                         <div class="flex-1 min-w-0">
                             <p class="text-sm font-semibold text-slate-800 truncate">${item.lineProfile.displayName}</p>
-                            <p class="text-xs text-slate-500 truncate">Discord ID: ${item.discordId}</p>
-                            <p class="text-[10px] text-slate-400">連携: ${new Date(item.linkedAt).toLocaleString('ja-JP')}</p>
+                            <p class="text-xs text-slate-500 truncate">Discord: ${item.discordUsername || 'ID: ' + item.discordId}</p>
+                            <p class="text-[10px] text-slate-400">${new Date(item.linkedAt).toLocaleString('ja-JP')}</p>
                         </div>
                     </div>
                 `).join('');
             } catch (error) {
-                listEl.innerHTML = '<p class="text-sm text-red-500 text-center py-4">データの取得に失敗しました。<br>APIサーバーが起動しているか確認してください。</p>';
+                listEl.innerHTML = '<p class="text-sm text-red-500 text-center py-4">取得失敗。APIサーバーを確認してください。</p>';
             }
         }
     </script>
