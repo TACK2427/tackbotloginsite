@@ -1,22 +1,226 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
-  <title>ログイン</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>アカウント連携システム</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
 </head>
-<body>
-  <h2>Discordでログイン</h2>
-  <button onclick="loginDiscord()">Discord Login</button>
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen flex flex-col items-center justify-center p-4">
 
-  <script>
-    function loginDiscord() {
-      const url = "https://discord.com/api/oauth2/authorize" +
-        "?client_id=1271101266680086591" +
-        "&redirect_uri=https://login.tack2427.f5.si/callback.html" +
-        "&response_type=code" +
-        "&scope=identify";
-      location.href = url;
-    }
-  </script>
+    <!-- メインコンテナ -->
+    <div id="app" class="w-full max-w-md bg-white rounded-2xl shadow-xl p-8 border border-slate-100 relative overflow-hidden">
+        <!-- 管理者用切り替えボタン（右下） -->
+        <button onclick="toggleAdmin()" class="absolute bottom-2 right-2 text-xs text-slate-400 hover:text-slate-600">
+            Admin
+        </button>
+
+        <div id="user-view">
+            <h1 class="text-2xl font-bold text-center mb-6 text-slate-700">アカウント連携</h1>
+            
+            <div id="status-message" class="hidden mb-6 p-4 rounded-lg text-sm text-center"></div>
+
+            <!-- ステップ1: Discord -->
+            <div id="step-discord" class="space-y-4">
+                <p class="text-sm text-slate-600 text-center">まず、Discordアカウントでログインしてください。</p>
+                <button onclick="loginDiscord()" class="w-full flex items-center justify-center gap-3 bg-[#5865F2] hover:bg-[#4752C4] text-white py-3 px-4 rounded-xl font-medium transition-colors">
+                    <i data-lucide="message-square"></i>
+                    Discordでログイン
+                </button>
+            </div>
+
+            <!-- ステップ2: LINE -->
+            <div id="step-line" class="hidden space-y-4">
+                <div class="flex items-center justify-center gap-2 text-green-600 bg-green-50 p-3 rounded-lg text-sm mb-4">
+                    <i data-lucide="check-circle" class="w-5 h-5"></i>
+                    Discordの認証が完了しました
+                </div>
+                <p class="text-sm text-slate-600 text-center">次に、LINEアカウントでログインして紐付けを完了させます。</p>
+                <button onclick="loginLine()" class="w-full flex items-center justify-center gap-3 bg-[#06C755] hover:bg-[#05b34c] text-white py-3 px-4 rounded-xl font-medium transition-colors">
+                    <i data-lucide="message-circle"></i>
+                    LINEでログイン
+                </button>
+            </div>
+
+            <!-- ローディング -->
+            <div id="step-loading" class="hidden flex flex-col items-center justify-center py-8">
+                <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-slate-800 mb-4"></div>
+                <p class="text-slate-600 text-sm">処理中...</p>
+            </div>
+        </div>
+
+        <!-- 管理者ビュー -->
+        <div id="admin-view" class="hidden">
+            <h1 class="text-xl font-bold mb-4 text-slate-700 flex items-center gap-2">
+                <i data-lucide="shield"></i> 管理者用確認ページ
+            </h1>
+            <button onclick="fetchAdminData()" class="w-full bg-slate-800 hover:bg-slate-700 text-white py-2 rounded-lg text-sm mb-4">
+                データを更新
+            </button>
+            <div id="admin-list" class="space-y-3 max-h-96 overflow-y-auto">
+                <!-- データがここに挿入されます -->
+            </div>
+            <button onclick="toggleAdmin()" class="mt-4 text-sm text-slate-500 hover:text-slate-800 w-full text-center">
+                戻る
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // --- 設定値（ご自身の環境に合わせて変更してください） ---
+        const DISCORD_CLIENT_ID = "YOUR_DISCORD_CLIENT_ID";
+        const LINE_CLIENT_ID = "YOUR_LINE_CLIENT_ID";
+        const REDIRECT_URI = "https://login.tack2427.f5.si/"; 
+        const API_BASE_URL = "https://api.tack2427.f5.si"; // 注意: GitHub PagesがHTTPSなため、APIサーバーもHTTPS(SSL)化されている必要があります
+
+        // --- UI管理 ---
+        lucide.createIcons();
+        const views = {
+            discord: document.getElementById('step-discord'),
+            line: document.getElementById('step-line'),
+            loading: document.getElementById('step-loading'),
+            user: document.getElementById('user-view'),
+            admin: document.getElementById('admin-view')
+        };
+        const statusMsg = document.getElementById('status-message');
+
+        function showView(viewName) {
+            views.discord.classList.add('hidden');
+            views.line.classList.add('hidden');
+            views.loading.classList.add('hidden');
+            if (views[viewName]) views[viewName].classList.remove('hidden');
+        }
+
+        function showMessage(msg, isError = false) {
+            statusMsg.textContent = msg;
+            statusMsg.className = `mb-6 p-4 rounded-lg text-sm text-center ${isError ? 'bg-red-50 text-red-600 border border-red-200' : 'bg-green-50 text-green-700 border border-green-200'}`;
+            statusMsg.classList.remove('hidden');
+        }
+
+        // --- 認証フロー ---
+        function loginDiscord() {
+            // Implicit flowを利用してトークンをURLハッシュで受け取る
+            const url = `https://discord.com/api/oauth2/authorize?client_id=${DISCORD_CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=token&scope=identify`;
+            window.location.href = url;
+        }
+
+        function loginLine() {
+            // Authorization Code flowを利用
+            const state = Math.random().toString(36).substring(7);
+            localStorage.setItem('line_state', state);
+            const url = `https://access.line.me/oauth2/v2.1/authorize?response_type=code&client_id=${LINE_CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&state=${state}&scope=profile`;
+            window.location.href = url;
+        }
+
+        // --- ロード時の処理（URL解析） ---
+        window.onload = async () => {
+            const hash = window.location.hash.substring(1);
+            const params = new URLSearchParams(window.location.search);
+            
+            // 1. Discordからのリダイレクト（ハッシュに access_token がある場合）
+            const urlParamsHash = new URLSearchParams(hash);
+            if (urlParamsHash.has('access_token')) {
+                const discordToken = urlParamsHash.get('access_token');
+                localStorage.setItem('discordToken', discordToken);
+                // URLを綺麗にする
+                window.history.replaceState(null, null, window.location.pathname);
+                showView('line');
+                return;
+            }
+
+            // 2. LINEからのリダイレクト（クエリに code がある場合）
+            if (params.has('code')) {
+                const lineCode = params.get('code');
+                const discordToken = localStorage.getItem('discordToken');
+                
+                // URLを綺麗にする
+                window.history.replaceState(null, null, window.location.pathname);
+
+                if (!discordToken) {
+                    showMessage("Discordの認証情報が見つかりません。最初からやり直してください。", true);
+                    showView('discord');
+                    return;
+                }
+
+                showView('loading');
+                await sendToApi(discordToken, lineCode);
+                return;
+            }
+
+            // 初期状態
+            const savedDiscordToken = localStorage.getItem('discordToken');
+            if (savedDiscordToken) {
+                showView('line'); // すでにDiscordトークンを持っている場合
+            } else {
+                showView('discord');
+            }
+        };
+
+        // --- APIへのデータ送信 ---
+        async function sendToApi(discordToken, lineCode) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/save`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        discordToken: discordToken, 
+                        lineCode: lineCode,
+                        redirectUri: REDIRECT_URI // LINEの検証用に必要
+                    })
+                });
+
+                if (!response.ok) throw new Error('APIサーバーでエラーが発生しました');
+                
+                const result = await response.json();
+                localStorage.removeItem('discordToken'); // 成功したらクリア
+                
+                showView(''); // ボタン類を隠す
+                showMessage("🎉 アカウントの連携が完了しました！Discordでコマンドを試してみてください。");
+            } catch (error) {
+                console.error(error);
+                showView('line');
+                showMessage("連携に失敗しました: " + error.message, true);
+            }
+        }
+
+        // --- 管理者機能 ---
+        function toggleAdmin() {
+            views.user.classList.toggle('hidden');
+            views.admin.classList.toggle('hidden');
+            if (!views.admin.classList.contains('hidden')) {
+                fetchAdminData();
+            }
+        }
+
+        async function fetchAdminData() {
+            const listEl = document.getElementById('admin-list');
+            listEl.innerHTML = '<p class="text-sm text-slate-500 text-center py-4">読み込み中...</p>';
+            
+            try {
+                // ※実際は管理者用のシークレットキー等をHeaderに付与するべきです
+                const response = await fetch(`${API_BASE_URL}/users`);
+                const data = await response.json();
+                
+                if (data.length === 0) {
+                    listEl.innerHTML = '<p class="text-sm text-slate-500 text-center py-4">連携されたアカウントはまだありません。</p>';
+                    return;
+                }
+
+                listEl.innerHTML = data.map(item => `
+                    <div class="bg-white border border-slate-200 rounded-lg p-3 flex items-center gap-3">
+                        <img src="${item.lineProfile.pictureUrl || 'https://via.placeholder.com/40'}" class="w-10 h-10 rounded-full border border-slate-200" onerror="this.src='https://via.placeholder.com/40'">
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm font-semibold text-slate-800 truncate">${item.lineProfile.displayName}</p>
+                            <p class="text-xs text-slate-500 truncate">Discord ID: ${item.discordId}</p>
+                            <p class="text-[10px] text-slate-400">連携: ${new Date(item.linkedAt).toLocaleString('ja-JP')}</p>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                listEl.innerHTML = '<p class="text-sm text-red-500 text-center py-4">データの取得に失敗しました。<br>APIサーバーが起動しているか確認してください。</p>';
+            }
+        }
+    </script>
 </body>
 </html>
