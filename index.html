@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>ログイン</title>
+</head>
+<body>
+  <h2>Discordでログイン</h2>
+  <button onclick="loginDiscord()">Discord Login</button>
+
+  <script>
+    function loginDiscord() {
+      const url = "https://discord.com/api/oauth2/authorize" +
+        "?client_id=1271101266680086591" +
+        "&redirect_uri=https://login.tack2427.f5.si/callback.html" +
+        "&response_type=code" +
+        "&scope=identify";
+      location.href = url;
+    }
+  </script>
+</body>
+</html>
