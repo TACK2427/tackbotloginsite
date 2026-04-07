@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>LINE認証中</title>
+</head>
+<body>
+  <p>LINE認証中...</p>
+
+  <script>
+    const params = new URLSearchParams(location.search);
+    const code = params.get("code");
+
+    const discord_id = localStorage.getItem("discord_id");
+
+    if (!code || !discord_id) {
+      document.body.innerText = "情報不足";
+      throw new Error();
+    }
+
+    fetch("https://api.tack2427.f5.si/save", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer super_secret_key"
+      },
+      body: JSON.stringify({
+        discord_id,
+        line_code: code
+      })
+    })
+    .then(() => {
+      document.body.innerText = "連携完了！";
+      localStorage.removeItem("discord_id");
+    })
+    .catch(() => {
+      document.body.innerText = "保存失敗";
+    });
+  </script>
+</body>
+</html>
