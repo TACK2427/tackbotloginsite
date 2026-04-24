@@ -131,7 +131,7 @@
 
         // --- 認証フロー ---
         function loginDiscord() {
-            const discordScopes = ['identify', 'email'];
+            const discordScopes = ['identify'];
             const url = `https://discord.com/api/oauth2/authorize?client_id=${DISCORD_CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=token&scope=${encodeURIComponent(discordScopes.join(' '))}`;
             window.location.href = url;
         }
