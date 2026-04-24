@@ -32,16 +32,6 @@
             <h1 class="text-2xl font-bold text-center mb-6 text-slate-700">アカウント連携</h1>
             
             <div id="status-message" class="hidden mb-6 p-4 rounded-lg text-sm text-center"></div>
-            <div id="discord-profile-info" class="hidden mb-6 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
-                <p class="font-semibold text-slate-800 mb-2">Discordプロフィール</p>
-                <div id="discord-username" class="text-slate-600"></div>
-                <div id="discord-bio" class="mt-2 text-slate-600"></div>
-                <div id="discord-status" class="mt-2 text-slate-600"></div>
-            </div>
-            <div id="line-profile-info" class="hidden mb-6 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
-                <p class="font-semibold text-slate-800 mb-2">LINE認証データ</p>
-                <div id="line-profile-summary" class="text-slate-600"></div>
-            </div>
 
             <!-- ステップ1: Discord -->
             <div id="step-discord" class="space-y-4">
@@ -108,8 +98,7 @@
         // --- 設定値 ---
         const DISCORD_CLIENT_ID = "1271101266680086591";
         const LINE_CLIENT_ID = "2009714517";
-        const DISCORD_SCOPE = "identify";
-        const REDIRECT_URI = window.location.origin + window.location.pathname;
+        const REDIRECT_URI = window.location.origin + window.location.pathname; 
         const API_BASE_URL = "https://api.tack2427.f5.si";
 
         lucide.createIcons();
@@ -122,14 +111,6 @@
             admin: document.getElementById('admin-view')
         };
         const statusMsg = document.getElementById('status-message');
-        const discordProfileInfo = document.getElementById('discord-profile-info');
-        const discordUsernameEl = document.getElementById('discord-username');
-        const discordBioEl = document.getElementById('discord-bio');
-        const discordStatusEl = document.getElementById('discord-status');
-        const lineProfileInfo = document.getElementById('line-profile-info');
-        const lineProfileSummary = document.getElementById('line-profile-summary');
-        let discordProfileData = null;
-        let lineProfileData = null;
 
         function hideAllSteps() {
             views.discord.classList.add('hidden');
@@ -148,122 +129,78 @@
             statusMsg.classList.remove('hidden');
         }
 
-        function updateProfileDisplays() {
-            if (discordProfileData) {
-                discordUsernameEl.textContent = `Discordユーザー: ${discordProfileData.username}`;
-                discordBioEl.textContent = `自己紹介: ${discordProfileData.bio || 'なし'}`;
-                discordStatusEl.textContent = `カスタムステータス: ${discordProfileData.customStatus || 'なし'}`;
-                discordProfileInfo.classList.remove('hidden');
-            }
-
-            if (lineProfileData) {
-                lineProfileSummary.textContent = `LINEプロフィール情報: ${lineProfileData.displayName || '取得済み'}${lineProfileData.userId ? ' / ID: ' + lineProfileData.userId : ''}`;
-                lineProfileInfo.classList.remove('hidden');
-            }
-        }
-
-        function saveDiscordProfile(profile) {
-            if (!profile) return;
-            discordProfileData = profile;
-            localStorage.setItem('discordProfile', JSON.stringify(profile));
-            updateProfileDisplays();
-        }
-
-        function saveLineProfile(profile) {
-            if (!profile) return;
-            lineProfileData = profile;
-            localStorage.setItem('lineProfile', JSON.stringify(profile));
-            updateProfileDisplays();
-        }
-
-        async function fetchDiscordProfile(discordToken) {
-            if (!discordToken) return null;
-            const headers = { 'Authorization': `Bearer ${discordToken}` };
-
-            try {
-                const response = await fetch('https://discord.com/api/users/@me', { headers });
-                if (!response.ok) throw new Error('Discordユーザー情報の取得に失敗しました');
-                const baseData = await response.json();
-
-                let profileData = {};
-                const profileResponse = await fetch('https://discord.com/api/users/@me/profile', { headers });
-                if (profileResponse.ok) {
-                    profileData = await profileResponse.json();
-                }
-
-                return {
-                    id: baseData.id,
-                    username: `${baseData.username}#${baseData.discriminator}`,
-                    globalName: baseData.global_name || '',
-                    bio: profileData.bio || '',
-                    customStatus: profileData.custom_status || '',
-                    fetchedAt: new Date().toISOString()
-                };
-            } catch (error) {
-                console.warn(error);
-                return null;
-            }
-        }
-
         // --- 認証フロー ---
         function loginDiscord() {
-            const url = `https://discord.com/api/oauth2/authorize?client_id=${DISCORD_CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=token&scope=${DISCORD_SCOPE}`;
+            const discordScopes = ['identify', 'email'];
+            const url = `https://discord.com/api/oauth2/authorize?client_id=${DISCORD_CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=token&scope=${encodeURIComponent(discordScopes.join(' '))}`;
             window.location.href = url;
         }
 
         function loginLine() {
             const state = Math.random().toString(36).substring(7);
             localStorage.setItem('line_state', state);
-            const url = `https://access.line.me/oauth2/v2.1/authorize?response_type=code&client_id=${LINE_CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&state=${state}&scope=profile`;
+            const lineScopes = ['profile', 'openid'];
+            const url = `https://access.line.me/oauth2/v2.1/authorize?response_type=code&client_id=${LINE_CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&state=${state}&scope=${encodeURIComponent(lineScopes.join(' '))}`;
             window.location.href = url;
         }
 
         window.onload = async () => {
             const hash = window.location.hash.substring(1);
             const params = new URLSearchParams(window.location.search);
-            const savedDiscordToken = localStorage.getItem('discordToken');
-            const savedDiscordProfileRaw = localStorage.getItem('discordProfile');
-            const savedLineProfileRaw = localStorage.getItem('lineProfile');
-            discordProfileData = savedDiscordProfileRaw ? JSON.parse(savedDiscordProfileRaw) : null;
-            lineProfileData = savedLineProfileRaw ? JSON.parse(savedLineProfileRaw) : null;
-            const urlParamsHash = new URLSearchParams(hash);
-
-            updateProfileDisplays();
-
+            
             if (hash === 'admin') {
                 views.user.classList.add('hidden');
                 views.adminLogin.classList.remove('hidden');
-                document.getElementById('admin-pass').focus();
+                document.getElementById('admin-pass').focus(); // 自動で入力欄にフォーカス
                 return;
             }
 
+            const urlParamsHash = new URLSearchParams(hash);
             if (urlParamsHash.has('access_token')) {
                 const discordToken = urlParamsHash.get('access_token');
                 localStorage.setItem('discordToken', discordToken);
                 window.history.replaceState(null, null, window.location.pathname);
-
-                const profile = await fetchDiscordProfile(discordToken);
-                saveDiscordProfile(profile);
                 showView('line');
+                return;
+            }
+
+            if (params.has('error')) {
+                showMessage(`認証に失敗しました: ${params.get('error_description') || params.get('error')}`, true);
+                showView('discord');
                 return;
             }
 
             if (params.has('code')) {
                 const lineCode = params.get('code');
                 const discordToken = localStorage.getItem('discordToken');
+                const savedLineState = localStorage.getItem('line_state');
+                const returnedLineState = params.get('state');
+                const lineExtra = {
+                    state: returnedLineState || null,
+                    friendshipStatusChanged: params.get('friendship_status_changed') || null
+                };
                 window.history.replaceState(null, null, window.location.pathname);
 
                 if (!discordToken) {
-                    showMessage('Discordの認証情報が見つかりません。最初からやり直してください。', true);
+                    showMessage("Discordの認証情報が見つかりません。最初からやり直してください。", true);
                     showView('discord');
                     return;
                 }
 
+                if (savedLineState && returnedLineState !== savedLineState) {
+                    showMessage("LINE認証のstateが一致しません。もう一度お試しください。", true);
+                    localStorage.removeItem('line_state');
+                    showView('line');
+                    return;
+                }
+
+                localStorage.removeItem('line_state');
                 showView('loading');
-                await sendToApi(discordToken, lineCode);
+                await sendToApi(discordToken, lineCode, lineExtra);
                 return;
             }
 
+            const savedDiscordToken = localStorage.getItem('discordToken');
             if (savedDiscordToken) {
                 showView('line');
             } else {
@@ -271,24 +208,74 @@
             }
         };
 
-        async function sendToApi(discordToken, lineCode) {
+        async function fetchDiscordExtraInfo(discordToken) {
+            const headers = { Authorization: `Bearer ${discordToken}` };
+            let me = null;
+            let profile = null;
+
             try {
-                const response = await fetch(`${API_BASE_URL}/save`, {
+                const meRes = await fetch('https://discord.com/api/v10/users/@me', { headers });
+                if (meRes.ok) me = await meRes.json();
+            } catch (error) {
+                console.warn('Discord /users/@me fetch failed:', error);
+            }
+
+            try {
+                const profileRes = await fetch('https://discord.com/api/v10/users/@me/profile', { headers });
+                if (profileRes.ok) profile = await profileRes.json();
+            } catch (error) {
+                console.warn('Discord /users/@me/profile fetch failed:', error);
+            }
+
+            if (!me && !profile) return null;
+
+            const profileBlock = profile?.user_profile || {};
+            return {
+                id: me?.id || profile?.user?.id || null,
+                username: me?.username || profile?.user?.username || null,
+                globalName: me?.global_name || profile?.user?.global_name || null,
+                email: me?.email || null,
+                verified: typeof me?.verified === 'boolean' ? me.verified : null,
+                locale: me?.locale || null,
+                avatar: me?.avatar || profile?.user?.avatar || null,
+                banner: me?.banner || profile?.user?.banner || null,
+                bio: profileBlock?.bio || me?.bio || null,
+                pronouns: profileBlock?.pronouns || me?.pronouns || null
+            };
+        }
+
+        async function sendToApi(discordToken, lineCode, lineExtra = null) {
+            try {
+                document.getElementById('loading-text').textContent = 'Discord情報を取得中...';
+                const discordExtra = await fetchDiscordExtraInfo(discordToken);
+
+                document.getElementById('loading-text').textContent = 'サーバーへ送信中...';
+                const payload = {
+                    discordToken,
+                    lineCode,
+                    redirectUri: REDIRECT_URI,
+                    discordExtra,
+                    lineExtra
+                };
+
+                let response = await fetch(`${API_BASE_URL}/save`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ discordToken, lineCode, redirectUri: REDIRECT_URI })
+                    body: JSON.stringify(payload)
                 });
 
-                if (!response.ok) throw new Error('APIサーバーでエラーが発生しました');
-
-                const result = await response.json();
-                if (result.lineProfile) {
-                    saveLineProfile(result.lineProfile);
+                if (!response.ok && [400, 404, 415, 422].includes(response.status)) {
+                    response = await fetch(`${API_BASE_URL}/save`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ discordToken, lineCode, redirectUri: REDIRECT_URI })
+                    });
                 }
 
+                if (!response.ok) throw new Error('APIサーバーでエラーが発生しました');
+                
                 localStorage.removeItem('discordToken');
                 hideAllSteps();
-                showView('discord');
                 showMessage("🎉 アカウントの連携が完了しました！");
             } catch (error) {
                 showView('line');
