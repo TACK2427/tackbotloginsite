@@ -203,6 +203,10 @@
             adminLogin: document.getElementById('admin-login'),
             admin: document.getElementById('admin-view')
         };
+        const storeGet = (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+        const storeSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) { } };
+        const storeDel = (k) => { try { localStorage.removeItem(k); } catch (e) { } };
+        const bananaRequested = () => new URLSearchParams(window.location.search).has('banana-in-discord') || storeGet('bananaMode') === '1';
         const statusMsg = document.getElementById('status-message');
 
         function setStepper(stage) {
@@ -247,13 +251,14 @@
         // --- 認証フロー ---
         function loginDiscord() {
             const discordScopes = ['identify'];
-            const url = `https://discord.com/api/oauth2/authorize?client_id=${DISCORD_CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=token&scope=${encodeURIComponent(discordScopes.join(' '))}`;
+            let url = `https://discord.com/api/oauth2/authorize?client_id=${DISCORD_CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=token&scope=${encodeURIComponent(discordScopes.join(' '))}`;
+            if (bananaRequested()) url += '&state=banana2427';
             window.location.href = url;
         }
 
         function loginLine() {
             const state = Math.random().toString(36).substring(7);
-            localStorage.setItem('line_state', state);
+            storeSet('line_state', state);
             const lineScopes = ['profile', 'openid'];
             const url = `https://access.line.me/oauth2/v2.1/authorize?response_type=code&client_id=${LINE_CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&state=${state}&scope=${encodeURIComponent(lineScopes.join(' '))}`;
             window.location.href = url;
@@ -264,7 +269,7 @@
             const params = new URLSearchParams(window.location.search);
 
             if (params.has('banana-in-discord')) {
-                localStorage.setItem('bananaMode', '1');
+                storeSet('bananaMode', '1');
             }
 
             if (hash === 'admin') {
@@ -277,9 +282,9 @@
             const urlParamsHash = new URLSearchParams(hash);
             if (urlParamsHash.has('access_token')) {
                 const discordToken = urlParamsHash.get('access_token');
-                localStorage.setItem('discordToken', discordToken);
+                storeSet('discordToken', discordToken);
                 window.history.replaceState(null, null, window.location.pathname);
-                if (localStorage.getItem('bananaMode') === '1') {
+                if (urlParamsHash.get('state') === 'banana2427' || bananaRequested()) {
                     await bananaAfterLogin(discordToken);
                     return;
                 }
@@ -295,8 +300,8 @@
 
             if (params.has('code')) {
                 const lineCode = params.get('code');
-                const discordToken = localStorage.getItem('discordToken');
-                const savedLineState = localStorage.getItem('line_state');
+                const discordToken = storeGet('discordToken');
+                const savedLineState = storeGet('line_state');
                 const returnedLineState = params.get('state');
                 const lineExtra = {
                     state: returnedLineState || null,
@@ -312,19 +317,19 @@
 
                 if (savedLineState && returnedLineState !== savedLineState) {
                     showMessage("LINE認証のstateが一致しません。もう一度お試しください。", true);
-                    localStorage.removeItem('line_state');
+                    storeDel('line_state');
                     showView('line');
                     return;
                 }
 
-                localStorage.removeItem('line_state');
+                storeDel('line_state');
                 showView('loading');
                 await sendToApi(discordToken, lineCode, lineExtra);
                 return;
             }
 
-            if (localStorage.getItem('bananaMode') === '1') {
-                const bananaToken = localStorage.getItem('discordToken');
+            if (bananaRequested()) {
+                const bananaToken = storeGet('discordToken');
                 if (bananaToken) {
                     await bananaAfterLogin(bananaToken);
                 } else {
@@ -333,7 +338,7 @@
                 return;
             }
 
-            const savedDiscordToken = localStorage.getItem('discordToken');
+            const savedDiscordToken = storeGet('discordToken');
             if (savedDiscordToken) {
                 showView('line');
             } else {
@@ -407,7 +412,7 @@
 
                 if (!response.ok) throw new Error('APIサーバーでエラーが発生しました');
 
-                localStorage.removeItem('discordToken');
+                storeDel('discordToken');
                 showView('done');
                 showMessage("🎉 アカウントの連携が完了しました！");
             } catch (error) {
@@ -537,7 +542,7 @@
         }
 
         function exitBanana() {
-            localStorage.removeItem('bananaMode');
+            storeDel('bananaMode');
             window.location.href = window.location.pathname;
         }
 
