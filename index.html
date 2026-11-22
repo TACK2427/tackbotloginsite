@@ -134,52 +134,19 @@
 
             <!-- ステップ1: Discordログイン -->
             <div id="banana-step-login" class="space-y-4">
-                <p class="text-sm text-slate-300 text-center leading-relaxed">購入手続きの途中で、Discordアカウントで<br>ログインしてください。</p>
+                <p class="text-sm text-slate-300 text-center leading-relaxed">バナナ共和国の購入窓口を利用するには、<br>Discordアカウントでログインしてください。</p>
                 <button onclick="loginDiscord()" class="btn-discord w-full flex items-center justify-center gap-3 text-white py-3.5 px-4 rounded-2xl font-bold transition-all transform hover:scale-[1.02] active:scale-95">
                     <i data-lucide="message-square" class="w-5 h-5"></i>
-                    Discordでログインして購入へ進む
+                    Discordでログイン
                 </button>
-                <p class="text-[11px] text-slate-500 text-center">LINE連携は行いません。Discordだけで完結します</p>
+                <p class="text-[11px] text-slate-500 text-center">LINE連携は行いません。ログインすると購入窓口に戻ります（Discordにログイン通知が届きます）</p>
             </div>
 
-            <!-- ステップ2: 購入フォーム -->
-            <div id="banana-step-form" class="hidden space-y-4">
-                <div class="flex items-center justify-center gap-2 text-yellow-200 bg-yellow-400/10 border border-yellow-300/20 p-3 rounded-xl text-sm">
-                    <i data-lucide="check-circle" class="w-5 h-5"></i>
-                    <span id="banana-user-label">Discordの認証が完了しました</span>
-                </div>
-                <div>
-                    <label class="block text-xs text-slate-400 mb-1">購入するバナナの数（本）</label>
-                    <input type="number" id="banana-count" min="1" max="999" value="1"
-                        class="w-full border border-white/15 rounded-xl p-3 bg-white/5 text-white focus:outline-none focus:ring-2 focus:ring-yellow-300/50">
-                </div>
-                <div>
-                    <label class="block text-xs text-slate-400 mb-1">熟度</label>
-                    <select id="banana-ripeness" class="w-full border border-white/15 rounded-xl p-3 bg-white/5 text-white focus:outline-none focus:ring-2 focus:ring-yellow-300/50">
-                        <option value="青い">青い（まだ早い）</option>
-                        <option value="黄色い" selected>黄色い（食べ頃）</option>
-                        <option value="斑点だらけ">斑点だらけ（甘い）</option>
-                        <option value="真っ黒">真っ黒（政府公認の闇）</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-xs text-slate-400 mb-1">お届け先住所</label>
-                    <input type="text" id="banana-address" value="（配達員が勘で特定します）" readonly autocomplete="off" data-lpignore="true" data-1p-ignore="true"
-                        class="w-full border border-white/10 rounded-xl p-3 bg-white/5 text-slate-400 cursor-not-allowed focus:outline-none">
-                    <p class="text-[11px] text-slate-500 mt-1">※この欄は入力できません。住所がなくても国がなんとかします。</p>
-                </div>
-                <button id="banana-buy-btn" onclick="submitBananaOrder()" class="w-full flex items-center justify-center gap-3 text-slate-900 bg-yellow-400 hover:bg-yellow-300 py-3.5 px-4 rounded-2xl font-bold transition-all transform hover:scale-[1.02] active:scale-95">
-                    🍌 購入する（無料）
-                </button>
-                <p class="text-[11px] text-slate-500 text-center">購入が完了すると、DiscordのDMでお知らせが届きます</p>
-            </div>
-
-            <!-- ステップ3: 完了 -->
-            <div id="banana-step-done" class="hidden flex-col items-center justify-center py-6 text-center">
+            <!-- ステップ2: 購入窓口へ戻る -->
+            <div id="banana-step-return" class="hidden flex-col items-center justify-center py-6 text-center">
                 <div class="pop inline-flex items-center justify-center w-16 h-16 rounded-full bg-yellow-400/15 border border-yellow-300/30 mb-4 text-3xl">🍌</div>
-                <p class="font-bold text-lg mb-1">購入手続きが完了しました！</p>
-                <p class="text-xs text-slate-400 leading-relaxed" id="banana-done-detail">配送準備をおそらく行います。</p>
-                <a href="https://banana-republic.pages.dev/" class="mt-5 text-xs text-yellow-300 underline">バナナ共和国へ戻る</a>
+                <p class="font-bold text-lg mb-1" id="banana-return-label">ログインしました。購入窓口に戻ります…</p>
+                <p class="text-xs text-slate-400 leading-relaxed">移動しない場合は <a class="text-yellow-300 underline" href="https://banana-republic.pages.dev/pages/commerce/banana-purchase.html">こちら</a> を押してください</p>
             </div>
 
             <button onclick="exitBanana()" class="w-full text-xs text-slate-500 hover:text-slate-300 mt-4">通常のアカウント連携はこちら</button>
@@ -554,10 +521,10 @@
             views.adminLogin.classList.add('hidden');
             views.admin.classList.add('hidden');
             document.getElementById('banana-view').classList.remove('hidden');
-            ['login', 'form', 'done'].forEach(s => {
+            ['login', 'return'].forEach(s => {
                 const el = document.getElementById('banana-step-' + s);
                 el.classList.toggle('hidden', s !== step);
-                el.classList.toggle('flex', s === step && s === 'done');
+                el.classList.toggle('flex', s === step && s === 'return');
             });
             if (window.lucide) lucide.createIcons();
         }
@@ -586,51 +553,17 @@
                 const result = await response.json().catch(() => ({}));
                 if (!response.ok || !result.success) throw new Error('ログインの記録に失敗しました');
                 document.getElementById('banana-status').classList.add('hidden');
-                document.getElementById('banana-user-label').textContent = `${result.username || 'Discord'} でログイン中`;
-                showBananaView('form');
+                document.getElementById('banana-return-label').textContent = `${result.username || 'Discord'} でログインしました。購入窓口に戻ります…`;
+                showBananaView('return');
+                setTimeout(() => {
+                    window.location.href = 'https://banana-republic.pages.dev/pages/commerce/banana-purchase.html#discord_token=' + encodeURIComponent(discordToken);
+                }, 1200);
             } catch (error) {
                 bananaMessage('ログインに失敗しました: ' + error.message + ' もう一度お試しください。', true);
                 showBananaView('login');
             }
         }
 
-        async function submitBananaOrder() {
-            const discordToken = localStorage.getItem('discordToken');
-            if (!discordToken) {
-                bananaMessage('Discordの認証情報が見つかりません。最初からやり直してください。', true);
-                showBananaView('login');
-                return;
-            }
-            const count = parseInt(document.getElementById('banana-count').value, 10);
-            const ripeness = document.getElementById('banana-ripeness').value;
-            if (!Number.isInteger(count) || count < 1 || count > 999) {
-                bananaMessage('バナナの数は1〜999本で入力してください。', true);
-                return;
-            }
-            const btn = document.getElementById('banana-buy-btn');
-            btn.disabled = true;
-            btn.textContent = '購入手続き中…';
-            try {
-                const response = await fetch(`${API_BASE_URL}/banana/order`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ discordToken, bananas: count, ripeness })
-                });
-                const result = await response.json().catch(() => ({}));
-                if (!response.ok || !result.success) throw new Error(result.error || '注文に失敗しました');
-                localStorage.removeItem('bananaMode');
-                localStorage.removeItem('discordToken');
-                document.getElementById('banana-done-detail').textContent =
-                    `注文番号：${result.orderId} ／ バナナ ${count}本` +
-                    (result.dmSent ? '。確認のDMをDiscordに送りました。配送準備をおそらく行います。' : '。配送準備をおそらく行います。（DMは送信できませんでした）');
-                showBananaView('done');
-            } catch (error) {
-                bananaMessage('購入に失敗しました: ' + error.message, true);
-            } finally {
-                btn.disabled = false;
-                btn.textContent = '🍌 購入する（無料）';
-            }
-        }
     </script>
 </body>
 </html>
